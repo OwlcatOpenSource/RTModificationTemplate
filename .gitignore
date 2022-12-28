@@ -1,0 +1,10 @@
+.idea/
+/Build/
+Library/
+Logs/
+obj/
+Temp/
+Assets/RogueTraderAssemblies*
+**/Generated/*
+**/Generated.meta
+Assets/RenderPipeline/*
