@@ -35,7 +35,10 @@ namespace OwlcatModification.Editor.Setup
 		{
 			EditorUtility.DisplayProgressBar("Setup project", "trying find in steam automatically", 0);
 			var whInstallDirName = "";
-			var whSteamId = "2186680";
+			//Wh 40k Rogue Trader Steam app id
+			// var whSteamId = "2186680";
+			//The New OCG Demo Steam app id
+			var whSteamId = "1613010";
 			var steamInstallPath = "";
 			
 			try
