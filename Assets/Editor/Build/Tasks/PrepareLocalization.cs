@@ -1,11 +1,11 @@
 using System;
 using System.IO;
 using System.Linq;
-using Kingmaker.Localization.Shared;
 using OwlcatModification.Editor.Build.Context;
 using UnityEditor.Build.Pipeline;
 using UnityEditor.Build.Pipeline.Injector;
 using UnityEditor.Build.Pipeline.Interfaces;
+using Kingmaker.Localization.Enums;
 
 namespace OwlcatModification.Editor.Build.Tasks
 {

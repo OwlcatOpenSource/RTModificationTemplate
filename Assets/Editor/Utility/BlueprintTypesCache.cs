@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using Kingmaker.Blueprints;
-using Kingmaker.Blueprints.JsonSystem;
+using Kingmaker.Blueprints.JsonSystem.Helpers;
 
 namespace OwlcatModification.Editor.Utility
 {

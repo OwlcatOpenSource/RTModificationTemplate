@@ -157,6 +157,7 @@ namespace OwlcatModification.Editor.Setup
 		private static void SetupAssemblies(string whrtDirectory)
 		{
 			string[] skipAssemblies = {
+				"RogueTrader.SharedTypes.dll",
 				"mscorlib.dll",
 				"Owlcat.SharedTypes.dll",
 				"Autodesk.Fbx.dll",
