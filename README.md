@@ -65,7 +65,7 @@ Features (non UMM)
 ========
 
 ### Settings
-	* Press Tab key to open OwlcatModificationManager control panel.
+	* Press Shift+F10 key to open OwlcatModificationManager control panel.
 	* Press Ctrl+F10 to open UMM control panel.
 
 Control panels let you enable/disable mods and check information about installed mods.
