@@ -183,8 +183,11 @@ namespace OwlcatModification.Editor.Setup
 			foreach (string assemblyPath in Directory.GetFiles(assembliesDirectory, "*.dll"))
 			{
 				//skip all default unity dlls
-				if (assemblyPath.Contains("Unity.") 
-				    || assemblyPath.Contains("UnityEngine.") 
+				if (assemblyPath.Contains("Unity.") && !assemblyPath.Contains("AK.Wwise"))
+				{
+					continue;
+				}
+				if (assemblyPath.Contains("UnityEngine.") 
 				    || assemblyPath.Contains("UnityEditor."))
 				{
 					continue;
