@@ -50,8 +50,9 @@ namespace OwlcatModification.Editor.Setup
 				var table = (VdfTable)root;
 				if (table.Count < 1)
 				{
+					EditorUtility.ClearProgressBar();
 					Debug.LogError("Something went wrong parsing Steam internals...");
-					//TODO: fall back to manual setup
+					Setup();
 					return;
 				}
 
