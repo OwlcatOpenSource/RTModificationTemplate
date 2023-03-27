@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using UnityEditor;
 using Microsoft.Win32;
+using NeXt.Vdf;
 using UnityEditor.Build;
 using UnityEngine;
 
@@ -13,74 +14,107 @@ namespace OwlcatModification.Editor.Setup
 		private const string WhDirectoryKey = "whrt_directory";
 		private const string WhRepositoryKey = "wh_repository_directory";
 
-
-		[MenuItem("Modification Tools/ Internal/ Enable Dev Mode", false, -1000)]
-		public static void EndableDevMode()
-		{
-			var defines = PlayerSettings.GetScriptingDefineSymbols(NamedBuildTarget.Standalone);
-			defines = $"OWLCAT_MODS_DEV;{defines}";
-			PlayerSettings.SetScriptingDefineSymbols(NamedBuildTarget.Standalone, defines);
-		}
-		
-		[MenuItem("Modification Tools/ Internal/ Disable Dev Mode", false, -1000)]
-		public static void DisableDevMode()
-		{
-			var defines = PlayerSettings.GetScriptingDefineSymbols(NamedBuildTarget.Standalone);
-			defines = defines.Replace("OWLCAT_MODS_DEV;", "");
-			PlayerSettings.SetScriptingDefineSymbols(NamedBuildTarget.Standalone, defines);
-		}
-		
 		[MenuItem("Modification Tools/ Setup project with Steam", false, -1000)]
 		public static void SteamSetup()
 		{
 			EditorUtility.DisplayProgressBar("Setup project", "trying find in steam automatically", 0);
+
 			var whInstallDirName = "";
 			var whSteamId = "2186680";
 			var steamInstallPath = "";
+			string steamLibrarySettingsPath = null;
 			
+			//Find Steam library settings, which contain all steam library directories
 			try
 			{
 				RegistryKey steamInfo = Registry.CurrentUser.OpenSubKey("Software\\Valve\\Steam");
 				steamInstallPath = steamInfo.GetValue("SteamPath").ToString();
 				Debug.LogError($"Steam path : {steamInstallPath}");
-				var steamAppManifestPath =
-					Path.Combine(steamInstallPath, "steamapps", $"appmanifest_{whSteamId}.acf");
-				Debug.LogError($"appmanifest path: {steamAppManifestPath}");
-				if (File.Exists(steamAppManifestPath))
-				{
-					Debug.LogError("App manifest file exists");
-					var lines = File.ReadLines(steamAppManifestPath);
-					foreach (var line in lines)
-					{
-						if (!line.Contains("installdir")) continue;
-						// var splitLine = line.Replace(" ", "");
-						var splitLine = line.Replace("\t", "");
-						splitLine = splitLine.Replace("installdir", "");
-						whInstallDirName = splitLine.Replace("\"", "");
-
-						Debug.LogError($"Split: {whInstallDirName}");
-						break;
-					}
-				}
+				steamLibrarySettingsPath =
+					Path.Combine(steamInstallPath, "steamapps", $"libraryfolders.vdf");
 			}
 			catch (Exception e)
 			{
-				Console.WriteLine(e);
+				EditorUtility.ClearProgressBar();
+				Debug.LogException(e);
 				Setup();
+				return;
 			}
-
-			if (string.IsNullOrEmpty(whInstallDirName))
+			
+			//Parse settings file to find paths of installed games
+			if (File.Exists(steamLibrarySettingsPath))
 			{
-				Setup();
-			}
+				var deserializer = VdfDeserializer.FromFile(steamLibrarySettingsPath);
+				var root = deserializer.Deserialize();
+				Debug.LogError(root.Type);
+				var table = (VdfTable)root;
+				if (table.Count < 1)
+				{
+					Debug.LogError("Something went wrong parsing Steam internals...");
+					//TODO: fall back to manual setup
+					return;
+				}
 
-			var whDllPath = Path.Combine(steamInstallPath, $"steamapps\\common\\{whInstallDirName}");
-			EditorPrefs.SetString(WhDirectoryKey, whDllPath);
-			SetupAssemblies(whDllPath);
+				string steamLibraryPathNeeded = null;
+				string steamAppManifestPath = null;
+				
+				//Try to find app manifest file in library path
+				for (int i = 0; i < table.Count; i++)
+				{
+					var steamLibraryPath = (VdfTable)table[i];
+					var pathValue = ((VdfString)steamLibraryPath["path"]).Content;
+					Debug.LogError($"Got path: {pathValue}");
+					var manifestPossiblePath = Path.Combine(pathValue, "steamapps", $"appmanifest_{whSteamId}.acf");
+					Debug.LogError(manifestPossiblePath);
+					if (!File.Exists(manifestPossiblePath))
+					{
+						Debug.LogError($"No file ${manifestPossiblePath}. Looking further...");
+						continue;
+					}
+					Debug.LogError($"Got the manifest: {manifestPossiblePath}");
+					steamAppManifestPath = manifestPossiblePath;
+					steamLibraryPathNeeded = Path.Combine( pathValue, "steamapps", "common");
+					break;
+				}
+
+				if (string.IsNullOrEmpty(steamAppManifestPath))
+				{
+					EditorUtility.ClearProgressBar();
+					Debug.LogError("Steam set up failed.");
+					Setup();
+					return;
+				}
+				
+				//Parse app manifest to get game installation directory.
+				var lines = File.ReadLines(steamAppManifestPath);
+				foreach (var line in lines)
+				{
+					if (!line.Contains("installdir")) continue;
+					var splitLine = line.Replace("\t", "");
+					splitLine = splitLine.Replace("installdir", "");
+					whInstallDirName = splitLine.Replace("\"", "");
+
+					whInstallDirName = Path.Combine(steamLibraryPathNeeded, whInstallDirName);
+					Debug.LogError($"Game install dir path: {whInstallDirName}");
+					break;
+				}
+				
+			}
+			else
+			{
+				Debug.LogError("Couldn't find a file steam library settings file!");
+				EditorUtility.ClearProgressBar();
+				Setup();
+				return;
+			}
+			
+			//Get dlls of WH Rogue Trader
+			EditorPrefs.SetString(WhDirectoryKey, whInstallDirName);
+			SetupAssemblies(whInstallDirName);
 			
 			EditorUtility.ClearProgressBar();
 		}
-		
+
 		[MenuItem("Modification Tools/ Internal/ Setup project", false, -1000)]
 		public static void DevSetup()
 		{
@@ -137,20 +171,6 @@ namespace OwlcatModification.Editor.Setup
 			}
 		}
 
-		private static void SetupExternalPluginsDlls(string whrtDirectory)
-		{
-			const string targetAssembliesDirectory = "Assets/RogueTraderAssemblies";
-			var assembliesDirectory = Path.Combine(whrtDirectory, "Assets/Plugins/External");
-			Debug.LogError($"External plugins dll search path: {assembliesDirectory}");
-			if (!Directory.Exists(assembliesDirectory)) return;
-
-			foreach (string assemblyPath in Directory.GetFiles(assembliesDirectory, "*.dll", SearchOption.AllDirectories))
-			{
-				string filename = Path.GetFileName(assemblyPath);
-				File.Copy(assemblyPath, Path.Combine(targetAssembliesDirectory, filename), true);
-			}
-		}
-		
 		private static void SetupAssemblies(string whrtDirectory)
 		{
 			string[] skipAssemblies = {
@@ -170,15 +190,8 @@ namespace OwlcatModification.Editor.Setup
 			
 			const string targetAssembliesDirectory = "Assets/RogueTraderAssemblies";
 			Directory.CreateDirectory(targetAssembliesDirectory);
-
-			#if OWLCAT_MODS_DEV
 			
-			SetupExternalPluginsDlls(whrtDirectory);
-			string assembliesDirectory = Path.Combine(whrtDirectory, "Library/ScriptAssemblies");
-			
-			#else
 			string assembliesDirectory = Path.Combine(whrtDirectory, "WH40KRT_Data/Managed");
-			#endif
 			Debug.LogError($"ASM dir: {assembliesDirectory}");
 			foreach (string assemblyPath in Directory.GetFiles(assembliesDirectory, "*.dll"))
 			{
